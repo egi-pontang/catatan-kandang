@@ -387,7 +387,7 @@ function lastHidup(c,date){var best=null,bd="";for(var k in state.daily){var p=k
   if(p[1]<date&&hasValue(r.hidup)&&p[1]>bd){bd=p[1];best=num(r.hidup)}}return best===null?cohortBy(c).n:best}
 function effHidup(c,date){var r=getRec(c,date),h=num(r.hidup);if(h!==null)return h;var base=lastHidup(c,date),m=num(r.mati)||0;return Math.max(0,base-m)}
 function targetG(c,date){return effHidup(c.key,date)*gPerBird(c,date)}
-function consumed(r){var fp=feedParts(r);if(fp.has)return fp.pagi+fp.sore-(num(r.sisa)||0);var a=num(r.pagi),b=num(r.sore);if(a===null&&b===null)return null;return(a||0)+(b||0)-(num(r.sisa)||0)}
+function consumed(r){var fp=feedParts(r);if(fp.has)return fp.pagi+fp.siang+fp.sore-(num(r.sisa)||0);var a=num(r.pagi),b=num(r.sore);if(a===null&&b===null)return null;return(a||0)+(b||0)-(num(r.sisa)||0)}
 function mixAt(c,date){return MIX[phaseAt(c,date)]}
 function lastRecDate(ck){var best="";for(var k in state.daily){var p=k.split("|");if(p[0]===ck&&p[1]>best)best=p[1]}return best}
 function curHidup(c){var d=lastRecDate(c.key);return d?effHidup(c.key,d):c.n}
@@ -717,14 +717,14 @@ function viewHome(){
   acts.forEach(function(c){
     var r=getRec(c.key,t),hid=effHidup(c.key,t),tg=targetG(c,t),logged=consumed(r)!==null,ph=phaseAt(c,t),a=ageDays(c,t);totH+=hid;totT+=tg;
     h+='<button class="ccard" data-go="catat:'+c.key+'"><span class="cn">'+esc(c.name)+'</span><span class="ch">'+fmt(hid,0)+' ekor</span><span class="note">Umur '+Math.floor(a/7)+' mgg '+(a%7)+' hr · '+ph+'</span><span class="note">Target '+fmt(tg,0)+' g ('+fmt(gPerBird(c,t),0)+' g/ekor)</span><span class="pill '+(logged?"":"warn")+'">'+(logged?"Pakan tercatat":"Belum dicatat")+'</span></button>'});
-  h+='</div><div class="card"><b>Total '+fmt(totH,0)+' ekor</b> · target pakan hari ini <b>'+fmt(totT/1000,2)+' kg</b> (pagi '+fmt(totT*.4/1000,2)+' kg, sore '+fmt(totT*.6/1000,2)+' kg)</div><button class="btn small" style="margin-bottom:6px" data-go="more|kelompok">Atur, ubah tanggal, atau hapus kelompok</button>';
+  h+='</div><div class="card"><b>Total '+fmt(totH,0)+' ekor</b> · target pakan hari ini <b>'+fmt(totT/1000,2)+' kg</b> ('+feedSlots(null).map(function(s){return s.n.toLowerCase()+" "+fmt(totT*s.f/1000,2)+" kg"}).join(", ")+')</div><button class="btn small" style="margin-bottom:6px" data-go="more|kelompok">Atur, ubah tanggal, atau hapus kelompok</button>';
   h+='<h2>Perlu perhatian'+(al.length?' ('+al.length+')':'')+'</h2>';
   if(!al.length)h+='<div class="okbox">Tidak ada peringatan. Pertahankan rutinitas harian.</div>';
   else{al.slice(0,ui.allAlerts?99:5).forEach(function(a){h+=alertRow(a)});if(al.length>5)h+='<button class="btn small" data-act="allAlerts">'+(ui.allAlerts?"Tampilkan lebih sedikit":"Lihat semua "+al.length)+'</button>'}
   h+=homeMusim()+homeVideo();
-  var done=0;JADWAL.forEach(function(j){if((state.tasks[t+"|"+j.id]||{}).v)done++});
-  h+='<h2>Jadwal harian <span class="note">'+done+'/'+JADWAL.length+'</span></h2><div class="card list">';
-  JADWAL.forEach(function(j){var on=(state.tasks[t+"|"+j.id]||{}).v;h+='<label class="row tk"><input type="checkbox" data-task="'+j.id+'" '+(on?"checked":"")+'><span class="grow"><b>'+j.t+'</b><span class="note">'+esc(j.x)+'</span></span></label>'});
+  var JD=jadwalHari(),done=0;JD.forEach(function(j){if((state.tasks[t+"|"+j.id]||{}).v)done++});
+  h+='<h2>Jadwal harian <span class="note">'+done+'/'+JD.length+'</span></h2><div class="card list">';
+  JD.forEach(function(j){var on=(state.tasks[t+"|"+j.id]||{}).v;h+='<label class="row tk"><input type="checkbox" data-task="'+j.id+'" '+(on?"checked":"")+'><span class="grow"><b>'+j.t+'</b><span class="note">'+esc(j.x)+'</span></span></label>'});
   h+='</div>';
   var sn=stockNow();
   h+='<div class="card"><h3>Stok pakan</h3>'+(sn?'<table class="mix"><tr><th>Bahan</th><th>Perkiraan sisa</th></tr>'+MIX_KEYS.map(function(k,i){return'<tr><td>'+MIX_NAMES[i]+'</td><td>'+fmt(Math.max(0,sn[k]),1)+' kg</td></tr>'}).join("")+'</table>':'<p class="note">Stok awal belum diisi.</p>')+'<button class="btn small" style="margin-top:8px" data-go="more|pakan">Buka Pakan dan stok</button></div>';
@@ -757,14 +757,14 @@ function refreshDerived(){
   var c=curC(),ck=c.key,r=getRec(ck,ui.date),a=ageW(c,ui.date),tg=targetG(c,ui.date),hid=effHidup(ck,ui.date),mix=mixAt(c,ui.date),el=$;
   if(!el("tgTotal"))return;
   el("tgTotal").textContent="Target pakan "+fmt(tg,0)+" g/hari";
-  el("tgSplit").textContent="Pagi (40%) "+fmt(tg*.4,0)+" g, sore (60%) "+fmt(tg*.6,0)+" g untuk "+fmt(hid,0)+" ekor ("+fmt(gPerBird(c,ui.date),0)+" g/ekor, sumber: "+srcLabel(c)+")";
-  var t='<table class="mix"><tr><th>Bahan</th><th>Komposisi</th><th>Pagi (g)</th><th>Sore (g)</th></tr>';
-  for(var i=0;i<4;i++){if(!mix[i])continue;t+='<tr><td>'+MIX_NAMES[i]+'</td><td>'+Math.round(mix[i]*100)+'%</td><td>'+fmt(tg*mix[i]*.4,0)+'</td><td>'+fmt(tg*mix[i]*.6,0)+'</td></tr>'}
+  el("tgSplit").textContent=feedSlots(r).map(function(s){return s.n+" ("+Math.round(s.f*100)+"%) "+fmt(tg*s.f,0)+" g"}).join(", ")+" untuk "+fmt(hid,0)+" ekor ("+fmt(gPerBird(c,ui.date),0)+" g/ekor, sumber: "+srcLabel(c)+")";
+  var sl=feedSlots(r),t='<table class="mix"><tr><th>Bahan</th><th>Komposisi</th>'+sl.map(function(s){return'<th>'+s.n+' (g)</th>'}).join("")+'</tr>';
+  for(var i=0;i<4;i++){if(!mix[i])continue;t+='<tr><td>'+MIX_NAMES[i]+'</td><td>'+Math.round(mix[i]*100)+'%</td>'+sl.map(function(s){return'<td>'+fmt(tg*mix[i]*s.f,0)+'</td>'}).join("")+'</tr>'}
   el("mixBox").innerHTML=t+"</table>";
   var p1=phaseAt(c,ui.date),p2=phaseAt(c,addDays(ui.date,7));
   el("phaseTip").innerHTML=p1!==p2?'<div class="warnbox" style="margin:8px 0 0">Minggu depan masuk fase '+p2+'. Campur pakan baru bertahap: 25% (hari 1-2), 50% (3-4), 75% (5-6), 100% (hari 7).</div>':"";
   var cons=consumed(r);
-  el("consInfo").innerHTML=cons===null?"Isi gram tiap bahan pagi dan sore, lalu sisa pakan, untuk melihat konsumsi.":'Konsumsi: <b>'+fmt(cons,0)+' g</b> ('+fmt(hid>0?cons/hid:null,0)+' g/ekor), '+(tg>0?fmt(cons/tg*100,0):"-")+'% dari target.'+(tg>0&&cons/tg<.9?' <span class="pill warn">di bawah target</span>':'')+(tg>0&&cons/tg>1.1?' <span class="pill warn">di atas target</span>':'');
+  el("consInfo").innerHTML=cons===null?"Isi gram tiap bahan di tiap waktu makan, lalu sisa pakan, untuk melihat konsumsi.":'Konsumsi: <b>'+fmt(cons,0)+' g</b> ('+fmt(hid>0?cons/hid:null,0)+' g/ekor), '+(tg>0?fmt(cons/tg*100,0):"-")+'% dari target.'+(tg>0&&cons/tg<.9?' <span class="pill warn">di bawah target</span>':'')+(tg>0&&cons/tg>1.1?' <span class="pill warn">di atas target</span>':'');
   var fc=el("feedCmp");if(fc)fc.textContent=feedCompare(c,r);
   el("suplBox").innerHTML='Tambahan maksimal untuk '+fmt(hid,0)+' ekor: '+suplFor(c,ui.date).map(function(s){return s[0].replace(/ \(.*\)/,"")+" "+fmt(s[1]*hid,0)+" g"}).join(", ")+".";
   var tl=num(r.telur);
@@ -1003,27 +1003,44 @@ var BAHAN_POKOK=[["pur","Pur / konsentrat (GF 511)",0],["jag","Jagung giling",1]
 var BAHAN_OPSI=[["maggot","Maggot"],["azolla","Azolla"],["daun","Daun-daunan (pepaya, kelor, dll.)"],["sayur","Sayur"],["nasi","Nasi / nasi karak"]];
 var OPSI_KEYS=BAHAN_OPSI.map(function(b){return b[0]});
 function feedParts(r){
-  var per=[0,0,0,0],has=false,pagi=0,sore=0;
-  BAHAN_POKOK.forEach(function(b,i){var p=num(r[b[0]+"_p"]),s=num(r[b[0]+"_s"]);if(p!==null||s!==null)has=true;per[i]=(p||0)+(s||0);pagi+=p||0;sore+=s||0});
-  return{has:has,per:per,pagi:pagi,sore:sore};
+  var per=[0,0,0,0],has=false,pagi=0,siang=0,sore=0;
+  BAHAN_POKOK.forEach(function(b,i){var p=num(r[b[0]+"_p"]),m=num(r[b[0]+"_m"]),s=num(r[b[0]+"_s"]);if(p!==null||m!==null||s!==null)has=true;per[i]=(p||0)+(m||0)+(s||0);pagi+=p||0;siang+=m||0;sore+=s||0});
+  return{has:has,per:per,pagi:pagi,siang:siang,sore:sore};
 }
-function pgS(r,w){var fp=feedParts(r);if(fp.has)return w==="pagi"?fp.pagi:fp.sore;return r[w]}
+function pgS(r,w){var fp=feedParts(r);if(fp.has)return w==="pagi"?fp.pagi:w==="siang"?fp.siang:fp.sore;return r[w]}
+/* Frekuensi makan: 3x sehari (pagi, siang, sore) atau 2x. Pembagian persen bisa diubah di Lainnya > Kelompok. */
+function makanN(){return(state.farm&&state.farm.makan===2)?2:3}
+function slotFracs(n){var a=n===3?((state.farm&&state.farm.split3)||[35,25,40]):((state.farm&&state.farm.split2)||[40,60]);var s=sum(a.map(function(x){return+x||0}))||1;return a.map(function(x){return(+x||0)/s})}
+function feedSlots(r){var n=makanN();if(n===2&&r&&feedParts(r).siang>0)n=3;var fr=slotFracs(n),keys=n===3?[["p","Pagi"],["m","Siang"],["s","Sore"]]:[["p","Pagi"],["s","Sore"]];return keys.map(function(k,i){return{k:k[0],n:k[1],f:fr[i]}})}
+function splitText(){return feedSlots(null).map(function(s){return Math.round(s.f*100)+"% "+s.n.toLowerCase()}).join(", ")}
+function jadwalHari(){
+  var sl=feedSlots(null),pct=function(k){var s=sl.filter(function(x){return x.k===k})[0];return s?Math.round(s.f*100):0};
+  var L=[{id:"t0630",t:"06.30",x:"Ganti air minum bersih, cuci tempat minum, cek kotoran dan perilaku ayam"},{id:"t0700",t:"07.00",x:"Pakan pagi ("+pct("p")+"% dari target)"},{id:"t0930",t:"09.30",x:"Azolla dan sayur"},{id:"t1130",t:"11.30",x:"Maggot dan pepaya (2-3x per minggu), kumpulkan telur pertama"}];
+  if(sl.length===3)L.push({id:"t1200",t:"12.00",x:"Pakan siang ("+pct("m")+"% dari target)"});
+  L.push({id:"t1400",t:"14.00",x:"Bersih-bersih: litter basah, kotoran, cuci tempat pakan dan minum"},{id:"t1530",t:"15.30",x:"Pakan sore ("+pct("s")+"%), ganti air sore, telur kedua"},{id:"t1700",t:"17.00",x:"Timbang sisa pakan dan isi catatan di aplikasi"});
+  return L;
+}
+function makanCard(){
+  var n=makanN(),a=n===3?(state.farm.split3||[35,25,40]):(state.farm.split2||[40,60]),lbl=n===3?["Pagi","Siang","Sore"]:["Pagi","Sore"];
+  return'<div style="margin-top:12px"><label class="f" for="mkSel">Frekuensi makan per hari</label><select id="mkSel" data-fm="makan"><option value="3"'+(n===3?" selected":"")+'>3x sehari (pagi, siang, sore)</option><option value="2"'+(n===2?" selected":"")+'>2x sehari (pagi, sore)</option></select></div><div class="grid g3" style="margin-top:8px">'+lbl.map(function(l,i){return field('data-fm="s'+i+'"',l+" (%)",a[i])}).join("")+'</div><p class="note">Target pakan harian dibagi sesuai persen ini. Total tidak harus 100, otomatis disesuaikan.</p>';
+}
 function feedUse(c,date,r){
   var cons=consumed(r);if(cons===null)return null;var fp=feedParts(r);
-  if(fp.has){var tot=fp.pagi+fp.sore,k=tot>0?cons/tot:1;return fp.per.map(function(g){return g*k})}
+  if(fp.has){var tot=fp.pagi+fp.siang+fp.sore,k=tot>0?cons/tot:1;return fp.per.map(function(g){return g*k})}
   var m=mixAt(c,date);return m.map(function(x){return cons*x});
 }
 function extraCols(r){
   var o=[];BAHAN_POKOK.forEach(function(b){o.push(r[b[0]+"_p"],r[b[0]+"_s"])});
   OPSI_KEYS.forEach(function(k){o.push(r[k])});
-  o.push((r.gejala||[]).map(function(k){return GEJALA_LABEL[k]||k}).join(", "));o.push((r.kohe||[]).map(function(k){return KOHE_LABEL[k]||k}).join(", "));return o;
+  o.push((r.gejala||[]).map(function(k){return GEJALA_LABEL[k]||k}).join(", "));o.push((r.kohe||[]).map(function(k){return KOHE_LABEL[k]||k}).join(", "));var fq=feedParts(r);o.push(fq.has?fq.siang:"");BAHAN_POKOK.forEach(function(b){o.push(r[b[0]+"_m"])});return o;
 }
-var EXTRA_HEAD=["Pur pagi (g)","Pur sore (g)","Jagung pagi (g)","Jagung sore (g)","Dedak pagi (g)","Dedak sore (g)","Kerang pagi (g)","Kerang sore (g)","Maggot (g)","Azolla (g)","Daun (g)","Sayur (g)","Nasi (g)","Gejala","Kohe"];
+var EXTRA_HEAD=["Pur pagi (g)","Pur sore (g)","Jagung pagi (g)","Jagung sore (g)","Dedak pagi (g)","Dedak sore (g)","Kerang pagi (g)","Kerang sore (g)","Maggot (g)","Azolla (g)","Daun (g)","Sayur (g)","Nasi (g)","Gejala","Kohe","Pakan siang (g)","Pur siang (g)","Jagung siang (g)","Dedak siang (g)","Kerang siang (g)"];
 function feedSection(c,r){
-  var tg=targetG(c,ui.date),mix=mixAt(c,ui.date),h='<p class="note" style="margin-top:0">Isi gram yang benar-benar diberikan, per bahan. Kolom target mengikuti komposisi fase '+phaseAt(c,ui.date)+'. Bahan yang tidak dipakai biarkan kosong.</p><div class="scroll"><table class="t feed"><tr><th>Bahan</th><th>Target hari ini</th><th>Pagi (g)</th><th>Sore (g)</th></tr>';
+  var tg=targetG(c,ui.date),mix=mixAt(c,ui.date),sl=feedSlots(r),
+  h='<p class="note" style="margin-top:0">Isi gram yang benar-benar diberikan, per bahan dan per waktu makan ('+sl.map(function(s){return s.n.toLowerCase()}).join(", ")+'). Kolom target mengikuti komposisi fase '+phaseAt(c,ui.date)+' dan pembagian '+splitText()+'. Bahan yang tidak dipakai biarkan kosong.</p><div class="scroll"><table class="t feed"><tr><th>Bahan</th><th>Target hari ini</th>'+sl.map(function(s){return'<th>'+s.n+' (g)</th>'}).join("")+'</tr>';
   BAHAN_POKOK.forEach(function(b){var t=tg*mix[b[2]];
-    h+='<tr><td><b>'+b[1]+'</b></td><td>'+(t>0?fmt(t,0)+' g<br><span class="note">pagi '+fmt(t*.4,0)+' / sore '+fmt(t*.6,0)+'</span>':'<span class="note">tidak dipakai</span>')+'</td>'+
-      '<td><input class="gi" type="number" inputmode="decimal" step="any" min="0" data-f="'+b[0]+'_p" value="'+esc(r[b[0]+"_p"]===undefined?"":r[b[0]+"_p"])+'" aria-label="'+b[1]+' pagi"></td><td><input class="gi" type="number" inputmode="decimal" step="any" min="0" data-f="'+b[0]+'_s" value="'+esc(r[b[0]+"_s"]===undefined?"":r[b[0]+"_s"])+'" aria-label="'+b[1]+' sore"></td></tr>'});
+    h+='<tr><td><b>'+b[1]+'</b></td><td>'+(t>0?fmt(t,0)+' g<br><span class="note">'+sl.map(function(s){return s.n.toLowerCase()+" "+fmt(t*s.f,0)}).join(" / ")+'</span>':'<span class="note">tidak dipakai</span>')+'</td>'+
+      sl.map(function(s){var v=r[b[0]+"_"+s.k];return'<td><input class="gi" type="number" inputmode="decimal" step="any" min="0" data-f="'+b[0]+'_'+s.k+'" value="'+esc(v===undefined?"":v)+'" aria-label="'+b[1]+' '+s.n.toLowerCase()+'"></td>'}).join("")+'</tr>'});
   h+='</table></div><div class="grid g2" style="margin-top:10px">'+inp("sisa","Sisa pakan pokok (g)",r)+'<div></div></div><div class="note" id="consInfo" style="margin-top:8px"></div><div id="feedCmp" class="note"></div>'+
     '<button class="btn small" style="margin-top:8px" data-act="fillTarget">Isi semua sesuai target</button> <button class="btn small" data-act="copyYest">Salin dari kemarin</button>';
   h+='<h3 style="margin-top:14px">Tambahan (opsional, bila ada)</h3><p class="note" style="margin-top:0">Maggot, azolla, daun-daunan, sayur, nasi. Isi hanya yang Anda berikan.</p><div class="grid g2">'+
@@ -1034,7 +1051,7 @@ function feedCompare(c,r){
   var fp=feedParts(r);if(!fp.has)return"";
   var tg=targetG(c,ui.date),mix=mixAt(c,ui.date),rows=[];
   BAHAN_POKOK.forEach(function(b){var t=tg*mix[b[2]],a=fp.per[b[2]];if(t>0||a>0){var d=t>0?(a/t-1)*100:null;rows.push(b[1].replace(/ \(.*\)/,"")+" "+fmt(a,0)+"/"+fmt(t,0)+" g"+(d===null?"":" ("+(d>=0?"+":"")+fmt(d,0)+"%)"))}});
-  return"Aktual/target: "+rows.join(" · ")+". Total pokok "+fmt(fp.pagi+fp.sore,0)+" g.";
+  return"Aktual/target: "+rows.join(" · ")+". Total pokok "+fmt(fp.pagi+fp.siang+fp.sore,0)+" g.";
 }
 
 /* ================= GEJALA, PENYAKIT, HERBAL ================= */
@@ -1188,7 +1205,7 @@ function viewRencana(){
   else{var cls=ph.ratio>1.05?"warnbox":ph.ratio<0.9?"warnbox":"okbox";
     h+='<div class="'+cls+'" style="margin:0 0 8px">Dalam '+ph.days+' hari tercatat: aktual <b>'+fmt(ph.act/1000,1)+' kg</b> dari rencana <b>'+fmt(ph.tg/1000,1)+' kg</b> ('+fmt(ph.ratio*100,0)+'%).<br>'+
       (ph.ratio>1.05?'Berlebih '+fmt(ph.selisihKg,1)+' kg, sekitar <b>'+rp(ph.rp)+'</b> yang bisa dihemat bila jatah disesuaikan.':ph.ratio<0.9?'Kurang '+fmt(-ph.selisihKg,1)+' kg dari rencana. Cek nafsu makan dan bobot agar tidak kekurangan gizi.':'Sesuai rencana.')+'</div>'}
-  h+='<ul class="note ul" style="margin:0"><li>Beri sesuai tabel, bagi 40% pagi dan 60% sore, dan timbang sisa pakan.</li><li>Ganti pakan antar fase bertahap 5-7 hari agar tidak ada pakan terbuang.</li><li>'+(daging?"Jangan lewat umur panen: setelah mencapai bobot, tiap hari tambahan hanya menambah biaya.":"Afkir ayam yang tidak bertelur 4 minggu: ayam tidak produktif tetap menghabiskan pakan.")+'</li><li>Isi tempat pakan sepertiga saja dan tutup bahan simpanan dari tikus dan burung.</li><li>Gunakan jagung dan dedak lokal sesuai komposisi fase, tanpa mengurangi protein dan kalsium.</li></ul></div>';
+  h+='<ul class="note ul" style="margin:0"><li>Beri sesuai tabel, bagi '+splitText()+', dan timbang sisa pakan.</li><li>Ganti pakan antar fase bertahap 5-7 hari agar tidak ada pakan terbuang.</li><li>'+(daging?"Jangan lewat umur panen: setelah mencapai bobot, tiap hari tambahan hanya menambah biaya.":"Afkir ayam yang tidak bertelur 4 minggu: ayam tidak produktif tetap menghabiskan pakan.")+'</li><li>Isi tempat pakan sepertiga saja dan tutup bahan simpanan dari tikus dan burung.</li><li>Gunakan jagung dan dedak lokal sesuai komposisi fase, tanpa mengurangi protein dan kalsium.</li></ul></div>';
   h+='<div class="card"><h3>Tabel mingguan DOC sampai '+(daging?"panen":"afkir")+'</h3><div class="scroll" style="max-height:420px;overflow:auto"><table class="t"><tr><th>Mgg</th><th>Fase</th><th>g/ekor/hr</th><th>kg/ekor</th><th>kg semua</th><th>Kumulatif</th><th>Biaya/ekor</th><th>Bobot acuan</th></tr>';
   var age=Math.floor(ageW(c,todayISO()))+1;
   rows.forEach(function(r){var mark=r.w===age?' class="sel"':"";
@@ -1199,7 +1216,7 @@ function viewRencana(){
 
 /* ---- Menu Kelompok dengan pilihan jenis ayam ---- */
 function viewKelompok(){
-  var h='<h2>Peternakan</h2><div class="card"><label class="f" for="farmIn">Nama peternakan</label><input id="farmIn" data-farm="1" type="text" value="'+esc(state.farm.nama)+'"></div><h2>Kelompok ayam</h2><p class="note">Pilih jenis ayam dan tujuan. Takaran pakan, fase, dan bobot acuan terisi otomatis dari DOC sampai afkir atau panen dan bisa Anda ubah. Isi "Umur hari ini" bila hanya tahu perkiraan umur.</p>';
+  var h='<h2>Peternakan</h2><div class="card"><label class="f" for="farmIn">Nama peternakan</label><input id="farmIn" data-farm="1" type="text" value="'+esc(state.farm.nama)+'">'+makanCard()+'</div><h2>Kelompok ayam</h2><p class="note">Pilih jenis ayam dan tujuan. Takaran pakan, fase, dan bobot acuan terisi otomatis dari DOC sampai afkir atau panen dan bisa Anda ubah. Isi "Umur hari ini" bila hanya tahu perkiraan umur.</p>';
   state.cohorts.forEach(function(c,i){
     var P=bp(c),daging=P.tujuan==="daging",a='data-c="'+i+'" ',rows=planRows(c),last=rows[rows.length-1];
     h+='<div class="card"><div class="grid g2">'+field(a+'data-cf="name"',"Nama kelompok",c.name,{type:"text"})+field(a+'data-cf="n"',"Jumlah awal (ekor)",c.n)+field(a+'data-cf="birth"',"Tanggal menetas",c.birth,{type:"date"})+field(a+'data-cf="age"',"Umur hari ini (hari)",ageDays(c,todayISO()))+
@@ -1544,8 +1561,8 @@ function initEvents(){
     var ac=e.target.closest("[data-act]");if(!ac)return;var act=ac.getAttribute("data-act"),i=+ac.getAttribute("data-i"),id=ac.getAttribute("data-id");
     var c=curC(),ck=c.key;
     if(act==="allAlerts"){ui.allAlerts=!ui.allAlerts;render(true)}
-    else if(act==="fillTarget"){var tg=targetG(c,ui.date),mx=mixAt(c,ui.date);BAHAN_POKOK.forEach(function(b){var t=tg*mx[b[2]];if(t>0){setField(ck,ui.date,b[0]+"_p",Math.round(t*.4));setField(ck,ui.date,b[0]+"_s",Math.round(t*.6))}});render(true);toast("Terisi sesuai target")}
-    else if(act==="copyYest"){var y=getRec(ck,addDays(ui.date,-1));["pagi","sore","sisa","tamb","air"].concat(BAHAN_POKOK.map(function(b){return b[0]+"_p"}),BAHAN_POKOK.map(function(b){return b[0]+"_s"}),OPSI_KEYS).forEach(function(f){if(hasValue(y[f]))setField(ck,ui.date,f,y[f])});["gp","gs","litter","cuci"].forEach(function(f){if(y[f])setField(ck,ui.date,f,true)});render(true);toast("Disalin dari kemarin")}
+    else if(act==="fillTarget"){var tg=targetG(c,ui.date),mx=mixAt(c,ui.date);var sl=feedSlots(getRec(ck,ui.date));BAHAN_POKOK.forEach(function(b){var t=tg*mx[b[2]];if(t>0)sl.forEach(function(s){setField(ck,ui.date,b[0]+"_"+s.k,Math.round(t*s.f))})});render(true);toast("Terisi sesuai target")}
+    else if(act==="copyYest"){var y=getRec(ck,addDays(ui.date,-1));["pagi","sore","sisa","tamb","air"].concat(BAHAN_POKOK.map(function(b){return b[0]+"_p"}),BAHAN_POKOK.map(function(b){return b[0]+"_s"}),BAHAN_POKOK.map(function(b){return b[0]+"_m"}),OPSI_KEYS).forEach(function(f){if(hasValue(y[f]))setField(ck,ui.date,f,y[f])});["gp","gs","litter","cuci"].forEach(function(f){if(y[f])setField(ck,ui.date,f,true)});render(true);toast("Disalin dari kemarin")}
     else if(act==="komDone"){state.vax[ck+"|"+id]={date:todayISO(),_t:Date.now()};queueSave();toast("Tercatat sudah");render(true)}
     else if(act==="komReset"){state.vax[ck+"|"+id]={_t:Date.now()};queueSave();render(true)}
     else if(act==="playVid"){var vb=ac.closest(".vid");if(vb){vb.className="vid big";vb.innerHTML='<iframe class="vframe" src="https://www.youtube.com/embed/'+id+'?autoplay=1&playsinline=1&rel=0" title="Video belajar" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>'}}
@@ -1586,8 +1603,8 @@ function initEvents(){
     else if(act==="disconnect"){if(confirm("Putuskan sambungan Google? Data di Sheet dan Drive tetap ada.")){cfg.url="";cfg.key="";sync.status="off";setStatus();render(true)}}
     else if(act==="makeApp"){if(!cfg.url){toast("Hubungkan Google dulu");return}download("Catatan-Kandang-siap-pakai.html","text/html",buildApp());toast("Pakai file ini seterusnya")}
     else if(act==="expJSON"){download("cadangan-catatan-kandang-"+todayISO()+".json","application/json",JSON.stringify(state,null,1))}
-    else if(act==="expCSV"){var rows=[["kelompok","tanggal","umur_mgg","hidup","mati","sakit","kondisi","pakan_pagi_g","pakan_sore_g","sisa_g","tambahan_g","air_L","diberikan","litter","cuci","desinfeksi","telur","retak_kecil","catatan"]];
-      Object.keys(state.daily).sort().forEach(function(k){var p=k.split("|"),r=state.daily[k],cc=cohortBy(p[0]);rows.push([cc.name,p[1],fmt(ageW(cc,p[1]),1),r.hidup,r.mati,r.sakit,r.kond,r.pagi,r.sore,r.sisa,r.tamb,r.air,(r.beri||[]).join("+"),r.litter?"V":"",r.cuci?"V":"",r.desinf?"V":"",r.telur,r.retak,r.cat])});
+    else if(act==="expCSV"){var rows=[["kelompok","tanggal","umur_mgg","hidup","mati","sakit","kondisi","pakan_pagi_g","pakan_siang_g","pakan_sore_g","sisa_g","tambahan_g","air_L","diberikan","litter","cuci","desinfeksi","telur","retak_kecil","catatan"]];
+      Object.keys(state.daily).sort().forEach(function(k){var p=k.split("|"),r=state.daily[k],cc=cohortBy(p[0]);rows.push([cc.name,p[1],fmt(ageW(cc,p[1]),1),r.hidup,r.mati,r.sakit,r.kond,pgS(r,"pagi"),pgS(r,"siang"),pgS(r,"sore"),r.sisa,r.tamb,r.air,(r.beri||[]).join("+"),r.litter?"V":"",r.cuci?"V":"",r.desinf?"V":"",r.telur,r.retak,r.cat])});
       download("catatan-harian-"+todayISO()+".csv","text/csv",toCSV(rows))}
     else if(act==="reset"){if(confirm("Hapus SEMUA catatan di layar ini? Data di Google tidak ikut terhapus.")&&confirm("Yakin?")){var keepRev=sync.rev;state=defaultState();draft={w:{},h:null,hatch:null,rc:null,sub:{a:"jagung",b:"nasi",step:10}};queueSave();render()}}
   });
@@ -1596,6 +1613,10 @@ function initEvents(){
     var t=e.target;
     if(t.id==="dateIn"){if(t.value){ui.date=t.value;render()}return}
     if(t.id==="mIn"){if(t.value){ui.month=t.value;render()}return}
+    if(t.hasAttribute("data-fm")){var fm=t.getAttribute("data-fm");state.farm=state.farm||{};
+      if(fm==="makan"){state.farm.makan=+t.value===2?2:3}
+      else{var ix=+fm.slice(1),key=makanN()===3?"split3":"split2",arr=(state.farm[key]||(key==="split3"?[35,25,40]:[40,60])).slice();arr[ix]=num(t.value)||0;state.farm[key]=arr}
+      state.farm._t=Date.now();queueSave();if(e.type==="change")render(true);return}
     if(t.hasAttribute("data-farm")){state.farm.nama=t.value;state.farm._t=Date.now();queueSave();var fe=$("farmName");if(fe)fe.textContent=t.value||"Peternakan Saya";return}
     if(t.hasAttribute("data-f")){var f=t.getAttribute("data-f"),v=t.type==="checkbox"?t.checked:t.value;setField(ui.cohort,ui.date,f,v);if(OPSI_KEYS.indexOf(f)>=0){var rr=getRec(ui.cohort,ui.date),ts=0;OPSI_KEYS.forEach(function(k){ts+=num(rr[k])||0});setField(ui.cohort,ui.date,"tamb",ts)}refreshDerived();return}
     if(t.hasAttribute("data-task")){var k=ui.dateToday||todayISO()+"|"+t.getAttribute("data-task");state.tasks[todayISO()+"|"+t.getAttribute("data-task")]={v:t.checked,_t:Date.now()};queueSave();if(e.type==="change")render(true);return}
